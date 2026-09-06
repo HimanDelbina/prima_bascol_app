@@ -218,15 +218,23 @@ class _PartyComparisonScreenState extends ConsumerState<PartyComparisonScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              const Icon(Icons.analytics_outlined, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Text(
-                "جدول مقایسه همزمان (${parties.length} طرف‌حساب)",
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.analytics_outlined, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    "جدول مقایسه همزمان (${parties.length} طرف‌حساب)",
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ],
               ),
-              const Spacer(),
               Chip(
                 label: Text("کانتکست: ${model.productContext}", style: const TextStyle(fontSize: 11)),
                 visualDensity: VisualDensity.compact,
