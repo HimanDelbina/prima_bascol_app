@@ -86,7 +86,7 @@ class PartyRankingFilter {
     this.quickPeriod = 'this_month',
     this.partyType,
     this.product,
-    this.minimumTickets = 20,
+    this.minimumTickets = 0,
     this.ordering = 'overall_score',
     this.searchQuery = '',
   });

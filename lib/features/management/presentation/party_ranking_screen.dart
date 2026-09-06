@@ -229,7 +229,9 @@ class _PartyRankingScreenState extends ConsumerState<PartyRankingScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  "شرط رتبه‌بندی: حداقل ${filter.minimumTickets} قبض",
+                  filter.minimumTickets > 0
+                      ? "شرط ورود به رتبه‌بندی: حداقل ${filter.minimumTickets} قبض (استاندارد آماری)"
+                      : "شرط ورود به رتبه‌بندی: نمایش تمامی طرف‌حساب‌ها (بدون حد نصاب)",
                   style: TextStyle(
                     fontSize: 11,
                     color: isDark ? Colors.white70 : Colors.black54,
@@ -250,7 +252,7 @@ class _PartyRankingScreenState extends ConsumerState<PartyRankingScreen> {
                   visualDensity: VisualDensity.compact,
                 ),
                 child: Text(
-                  filter.minimumTickets > 0 ? "نمایش همه" : "حداقل ۲۰ بار",
+                  filter.minimumTickets > 0 ? "نمایش همه" : "فقط بالای ۲۰ قبض",
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
