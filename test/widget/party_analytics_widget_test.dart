@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:prima_bascol_app/core/routing/route_names.dart';
 import 'package:prima_bascol_app/features/management/domain/party_analytics_models.dart';
 import 'package:prima_bascol_app/features/management/presentation/management_providers.dart';
+import 'package:prima_bascol_app/features/management/presentation/management_screen.dart';
 import 'package:prima_bascol_app/features/management/presentation/party_ranking_screen.dart';
 import 'package:prima_bascol_app/features/management/presentation/party_detail_analytics_screen.dart';
 
@@ -293,6 +296,62 @@ void main() {
 
       expect(find.text('داده ناکافی'), findsWidgets);
       expect(find.textContaining('داده کافی برای امتیازدهی معتبر وجود ندارد'), findsOneWidget);
+    });
+
+    testWidgets('ManagementScreen banner button navigates to PartyRankingScreen via GoRouter', (tester) async {
+      final items = [createDummyRankingItem(rank: 1, name: 'تست')];
+      final router = GoRouter(
+        initialLocation: AppRoutes.management,
+        routes: [
+          GoRoute(
+            path: AppRoutes.management,
+            builder: (context, state) => const Directionality(
+              textDirection: TextDirection.rtl,
+              child: ManagementScreen(),
+            ),
+            routes: [
+              GoRoute(
+                path: 'parties/ranking',
+                name: 'partyRanking',
+                builder: (context, state) => const Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: PartyRankingScreen(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+
+      tester.view.physicalSize = const Size(1280, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            managementSummaryProvider.overrideWith((ref) => Future.value(null)),
+            managementProductsProvider.overrideWith((ref) => Future.value([])),
+            managementPartiesProvider.overrideWith((ref) => Future.value([])),
+            partyRankingProvider.overrideWith((ref) => Future.value(items)),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final button = find.text('مشاهده رتبه‌بندی');
+      expect(button, findsOneWidget);
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+
+      expect(find.text('رتبه‌بندی و ارزیابی طرف‌های حساب'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

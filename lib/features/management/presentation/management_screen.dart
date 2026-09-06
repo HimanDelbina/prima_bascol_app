@@ -261,40 +261,77 @@ class ManagementScreen extends ConsumerWidget {
             // Phase 4: Party Analytics & Scoring Banner
             AppCard(
               padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.leaderboard_outlined, color: AppColors.primary, size: 28),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: ResponsiveLayout(
+                mobile: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
                       children: [
-                        const Text(
-                          "تحلیل، رتبه‌بندی و امتیازدهی طرف‌های حساب (فاز ۴)",
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.leaderboard_outlined, color: AppColors.primary, size: 28),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          "ارزیابی قاعده‌محور دقت وزنی، افت کالا، ثبات، هشدارهای پایش و بهره‌وری عملیاتی",
-                          style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.black54),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            "تحلیل و رتبه‌بندی طرف‌های حساب",
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  FilledButton.icon(
-                    onPressed: () => context.push(AppRoutes.partyRanking),
-                    icon: const Icon(Icons.assessment_outlined, size: 18),
-                    label: const Text("مشاهده رتبه‌بندی", style: TextStyle(fontSize: 13)),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      "ارزیابی قاعده‌محور دقت وزنی، افت کالا، ثبات، هشدارهای پایش و بهره‌وری عملیاتی",
+                      style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.black54),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: () => context.push(AppRoutes.partyRanking),
+                      icon: const Icon(Icons.assessment_outlined, size: 18),
+                      label: const Text("مشاهده رتبه‌بندی", style: TextStyle(fontSize: 13)),
+                    ),
+                  ],
+                ),
+                desktop: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.leaderboard_outlined, color: AppColors.primary, size: 28),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "تحلیل، رتبه‌بندی و امتیازدهی طرف‌های حساب (فاز ۴)",
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "ارزیابی قاعده‌محور دقت وزنی، افت کالا، ثبات، هشدارهای پایش و بهره‌وری عملیاتی",
+                            style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.black54),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    FilledButton.icon(
+                      onPressed: () => context.push(AppRoutes.partyRanking),
+                      icon: const Icon(Icons.assessment_outlined, size: 18),
+                      label: const Text("مشاهده رتبه‌بندی", style: TextStyle(fontSize: 13)),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -471,8 +508,14 @@ class ManagementScreen extends ConsumerWidget {
             children: [
               Icon(Icons.business_outlined, color: secondaryColor),
               const SizedBox(width: 8),
-              const Text("طرف‌های حساب پرتردد", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const Spacer(),
+              const Expanded(
+                child: Text(
+                  "طرف‌های حساب پرتردد",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
               TextButton.icon(
                 onPressed: () => context.push(AppRoutes.partyRanking),
                 icon: const Icon(Icons.analytics_outlined, size: 16),

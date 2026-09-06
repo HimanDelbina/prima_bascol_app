@@ -75,6 +75,39 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.splash,
     refreshListenable: notifier,
     redirect: notifier.redirect,
+    errorBuilder: (context, state) => Scaffold(
+      appBar: AppBar(
+        title: const Text("صفحه مورد نظر یافت نشد"),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.search_off_rounded, size: 64, color: Colors.orangeAccent),
+              const SizedBox(height: 16),
+              const Text(
+                "صفحه مورد نظر یافت نشد (۴۰۴)",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                state.error?.toString() ?? "مسیر درخواستی در سامانه تعریف نشده است.",
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => context.go(AppRoutes.dashboard),
+                icon: const Icon(Icons.dashboard_rounded),
+                label: const Text("بازگشت به داشبورد"),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
     routes: [
       GoRoute(
         path: AppRoutes.splash,
@@ -123,14 +156,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: 'parties/ranking',
+                name: 'partyRanking',
                 builder: (context, state) => const PartyRankingScreen(),
               ),
               GoRoute(
                 path: 'parties/compare',
+                name: 'partyCompare',
                 builder: (context, state) => const PartyComparisonScreen(),
               ),
               GoRoute(
                 path: 'parties/:id',
+                name: 'partyDetail',
                 builder: (context, state) {
                   final id = int.tryParse(state.pathParameters['id'] ?? '0') ?? 0;
                   return PartyDetailAnalyticsScreen(partyId: id);
