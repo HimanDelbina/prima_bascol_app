@@ -70,71 +70,140 @@ class AuditScreen extends ConsumerWidget {
 
   Widget _buildLogCard(AuditLogItem log, ThemeData theme) {
     Color actionColor;
-    switch (log.action.toUpperCase()) {
-      case 'CREATE':
+    switch (log.action.toLowerCase()) {
+      case 'create':
         actionColor = AppColors.success;
         break;
-      case 'UPDATE':
-      case 'CORRECT':
+      case 'update':
+      case 'correct':
+      case 'override_weight':
+      case 'override_loss':
         actionColor = AppColors.info;
         break;
-      case 'CANCEL':
-      case 'DELETE':
+      case 'cancel':
+      case 'delete':
         actionColor = AppColors.error;
+        break;
+      case 'print':
+        actionColor = Colors.purple;
         break;
       default:
         actionColor = AppColors.primary;
         break;
     }
 
+    final isDark = theme.brightness == Brightness.dark;
+
     return AppCard(
       padding: const EdgeInsets.all(AppDimensions.paddingMd),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Row 1: Action badge + Title + Timestamp
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: actionColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
+                ),
+                child: Text(
+                  log.actionDisplay,
+                  style: TextStyle(color: actionColor, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  log.objectRepr.isNotEmpty
+                      ? "${log.modelName}: ${log.objectRepr}"
+                      : log.modelName,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                log.createdAtJalali ?? '',
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Row 2: User Name & Role & IP
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: actionColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
-                    ),
-                    child: Text(log.action, style: TextStyle(color: actionColor, fontWeight: FontWeight.bold, fontSize: 12)),
+                  const Icon(Icons.person, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    "کاربر ثبت‌کننده: ${log.userName}",
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(width: 8),
-                  Text("${log.modelName}: ${log.objectRepr}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ],
               ),
-              Text(log.createdAtJalali ?? '', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              if (log.userRole != null && log.userRole!.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white10 : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    log.userRole!,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? Colors.white70 : Colors.black87,
+                    ),
+                  ),
+                ),
+              if (log.ipAddress != null && log.ipAddress!.isNotEmpty)
+                Text(
+                  "IP: ${log.ipAddress}",
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.person_outline, size: 16, color: Colors.grey),
-              const SizedBox(width: 6),
-              Text("کاربر: ${log.userName ?? 'سیستم'}", style: const TextStyle(fontSize: 13)),
-              if (log.ipAddress != null) ...[
-                const SizedBox(width: 14),
-                Text("IP: ${log.ipAddress}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+
+          // Reason if any
+          if (log.reason != null && log.reason!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.comment_outlined, size: 14, color: AppColors.warning),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    "علت: ${log.reason}",
+                    style: const TextStyle(fontSize: 12, color: AppColors.warning),
+                  ),
+                ),
               ],
-            ],
-          ),
+            ),
+          ],
+
+          // Changes JSON if any
           if (log.changes != null && log.changes!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.06),
+                color: isDark ? Colors.white.withOpacity(0.04) : Colors.grey.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
               ),
               child: Text(
-                "تغییرات: ${log.changes}",
-                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                "جزئیات مقادیر: ${log.changes}",
+                style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
               ),
             ),
           ],
