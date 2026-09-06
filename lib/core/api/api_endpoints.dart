@@ -60,6 +60,16 @@ class ApiEndpoints {
   static const String managementVehicles = '/management/vehicles/';
   static const String managementDrivers = '/management/drivers/';
   static const String managementTurnaround = '/management/turnaround/';
+  static const String managementPartyRanking = '/management/parties/ranking/';
+  static const String managementPartyCompare = '/management/parties/compare/';
+  static const String managementPartyConfig = '/management/parties/config/';
+  static const String managementPartyExportXlsx = '/management/parties/export/xlsx/';
+  static const String managementPartyExportCsv = '/management/parties/export/csv/';
+  static const String managementPartyExportPdf = '/management/parties/export/pdf/';
+  static String managementPartyDetail(int id) => '/management/parties/$id/';
+  static String managementPartyAnalytics(int id) => '/management/parties/$id/analytics/';
+  static String managementPartyScore(int id) => '/management/parties/$id/score/';
+  static String managementPartyTrend(int id) => '/management/parties/$id/trend/';
 
   // Monitoring
   static const String monitoringAlerts = '/monitoring/alerts/';

@@ -2,6 +2,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/api_endpoints.dart';
 import '../../../core/errors/failures.dart';
 import '../domain/management_models.dart';
+import '../domain/party_analytics_models.dart';
 
 class ManagementRepository {
   final ApiClient _apiClient;
@@ -140,5 +141,149 @@ class ManagementRepository {
       list = data;
     }
     return list.map((e) => ManagementBreakdownItem.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  // ==========================================
+  // Phase 4: Party Analytics & Scoring APIs
+  // ==========================================
+
+  Future<List<PartyRankingItem>> fetchPartyRanking({
+    String? partyType,
+    int? product,
+    int? minimumTickets,
+    String? ordering,
+    String? quickPeriod,
+  }) async {
+    try {
+      final qp = <String, dynamic>{
+        'quick_period': quickPeriod ?? 'this_month',
+        'ordering': ordering ?? 'overall_score',
+      };
+      if (partyType != null && partyType.isNotEmpty) qp['party_type'] = partyType;
+      if (product != null) qp['product'] = product;
+      if (minimumTickets != null) qp['minimum_tickets'] = minimumTickets;
+
+      final res = await _apiClient.request(
+        ApiEndpoints.managementPartyRanking,
+        queryParameters: qp,
+      );
+
+      final data = res.data;
+      List<dynamic> list = [];
+      if (data is Map<String, dynamic> && data['results'] is List) {
+        list = data['results'] as List;
+      } else if (data is List) {
+        list = data;
+      }
+
+      return list.map((e) => PartyRankingItem.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw ServerFailure(e.toString());
+    }
+  }
+
+  Future<PartyDetailAnalytics> fetchPartyAnalytics(
+    int partyId, {
+    String? quickPeriod,
+    String? startDate,
+    String? endDate,
+    int? product,
+  }) async {
+    try {
+      final qp = <String, dynamic>{
+        'quick_period': quickPeriod ?? 'this_month',
+      };
+      if (startDate != null && startDate.isNotEmpty) qp['start_date'] = startDate;
+      if (endDate != null && endDate.isNotEmpty) qp['end_date'] = endDate;
+      if (product != null) qp['product'] = product;
+
+      final res = await _apiClient.request(
+        ApiEndpoints.managementPartyAnalytics(partyId),
+        queryParameters: qp,
+      );
+
+      if (res.data is Map<String, dynamic>) {
+        return PartyDetailAnalytics.fromJson(res.data as Map<String, dynamic>);
+      }
+      throw ServerFailure("داده‌های دریافت شده معتبر نمی‌باشند.");
+    } catch (e) {
+      throw ServerFailure(e.toString());
+    }
+  }
+
+  Future<PartyScoreBreakdown> fetchPartyScore(
+    int partyId, {
+    String? quickPeriod,
+    int? product,
+  }) async {
+    try {
+      final qp = <String, dynamic>{
+        'quick_period': quickPeriod ?? 'this_month',
+      };
+      if (product != null) qp['product'] = product;
+
+      final res = await _apiClient.request(
+        ApiEndpoints.managementPartyScore(partyId),
+        queryParameters: qp,
+      );
+
+      if (res.data is Map<String, dynamic>) {
+        return PartyScoreBreakdown.fromJson(res.data as Map<String, dynamic>);
+      }
+      throw ServerFailure("پاسخ نامعتبر از سرور.");
+    } catch (e) {
+      throw ServerFailure(e.toString());
+    }
+  }
+
+  Future<PartyTrendModel> fetchPartyTrend(
+    int partyId, {
+    String? quickPeriod,
+    int? product,
+  }) async {
+    try {
+      final qp = <String, dynamic>{
+        'quick_period': quickPeriod ?? 'this_month',
+      };
+      if (product != null) qp['product'] = product;
+
+      final res = await _apiClient.request(
+        ApiEndpoints.managementPartyTrend(partyId),
+        queryParameters: qp,
+      );
+
+      if (res.data is Map<String, dynamic>) {
+        return PartyTrendModel.fromJson(res.data as Map<String, dynamic>);
+      }
+      throw ServerFailure("داده‌های روند یافت نشد.");
+    } catch (e) {
+      throw ServerFailure(e.toString());
+    }
+  }
+
+  Future<PartyComparisonModel> compareParties(
+    List<int> partyIds, {
+    int? product,
+    String? quickPeriod,
+  }) async {
+    try {
+      final qp = <String, dynamic>{
+        'party_ids': partyIds.join(','),
+        'quick_period': quickPeriod ?? 'this_month',
+      };
+      if (product != null) qp['product'] = product;
+
+      final res = await _apiClient.request(
+        ApiEndpoints.managementPartyCompare,
+        queryParameters: qp,
+      );
+
+      if (res.data is Map<String, dynamic>) {
+        return PartyComparisonModel.fromJson(res.data as Map<String, dynamic>);
+      }
+      throw ServerFailure("داده‌های مقایسه نامعتبر است.");
+    } catch (e) {
+      throw ServerFailure(e.toString());
+    }
   }
 }

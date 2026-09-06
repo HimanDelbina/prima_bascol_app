@@ -23,6 +23,7 @@ class ManagementScreen extends ConsumerWidget {
     final productsAsync = ref.watch(managementProductsProvider);
     final partiesAsync = ref.watch(managementPartiesProvider);
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final isCustom = filter.quickPeriod == 'custom';
 
     final periodOptions = [
@@ -257,6 +258,45 @@ class ManagementScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            // Phase 4: Party Analytics & Scoring Banner
+            AppCard(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.leaderboard_outlined, color: AppColors.primary, size: 28),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "تحلیل، رتبه‌بندی و امتیازدهی طرف‌های حساب (فاز ۴)",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "ارزیابی قاعده‌محور دقت وزنی، افت کالا، ثبات، هشدارهای پایش و بهره‌وری عملیاتی",
+                          style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.black54),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  FilledButton.icon(
+                    onPressed: () => context.push(AppRoutes.partyRanking),
+                    icon: const Icon(Icons.assessment_outlined, size: 18),
+                    label: const Text("مشاهده رتبه‌بندی", style: TextStyle(fontSize: 13)),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
 
             // Breakdowns: Products & Parties
@@ -432,6 +472,12 @@ class ManagementScreen extends ConsumerWidget {
               Icon(Icons.business_outlined, color: secondaryColor),
               const SizedBox(width: 8),
               const Text("طرف‌های حساب پرتردد", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => context.push(AppRoutes.partyRanking),
+                icon: const Icon(Icons.analytics_outlined, size: 16),
+                label: const Text("رتبه‌بندی و ارزیابی", style: TextStyle(fontSize: 12)),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -447,34 +493,53 @@ class ManagementScreen extends ConsumerWidget {
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (ctx, i) {
                   final p = items[i];
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  return InkWell(
+                    onTap: () {
+                      if (p.id != null) {
+                        context.push(AppRoutes.partyDetailPath(p.id!));
+                      } else {
+                        context.push(AppRoutes.partyRanking);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          Text(
-                            "${p.count} بار (${CurrencyFormatter.formatTon(p.tonnage * 1000)})",
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.chevron_left, size: 16, color: Colors.grey),
+                                ],
+                              ),
+                              Text(
+                                "${p.count} بار (${CurrencyFormatter.formatTon(p.tonnage * 1000)})",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: secondaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: (p.sharePercentage / 100).clamp(0.0, 1.0),
+                              minHeight: 8,
                               color: secondaryColor,
+                              backgroundColor: isDark ? Colors.white.withOpacity(0.08) : Colors.grey.withOpacity(0.15),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: (p.sharePercentage / 100).clamp(0.0, 1.0),
-                          minHeight: 8,
-                          color: secondaryColor,
-                          backgroundColor: isDark ? Colors.white.withOpacity(0.08) : Colors.grey.withOpacity(0.15),
-                        ),
-                      ),
-                    ],
+                    ),
                   );
                 },
               );

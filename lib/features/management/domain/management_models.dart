@@ -67,12 +67,14 @@ class ManagementSummaryModel {
 }
 
 class ManagementBreakdownItem {
+  final int? id;
   final String name;
   final double tonnage;
   final int count;
   final double sharePercentage;
 
   ManagementBreakdownItem({
+    this.id,
     required this.name,
     required this.tonnage,
     required this.count,
@@ -80,6 +82,8 @@ class ManagementBreakdownItem {
   });
 
   factory ManagementBreakdownItem.fromJson(Map<String, dynamic> json) {
+    final rawId = json['id'] ?? json['party_id'] ?? json['party__id'];
+    final id = rawId != null ? (rawId is int ? rawId : int.tryParse(rawId.toString())) : null;
     double parseVal(dynamic v1, dynamic v2, [dynamic v3, dynamic v4]) {
       final val = v1 ?? v2 ?? v3 ?? v4;
       if (val == null) return 0.0;

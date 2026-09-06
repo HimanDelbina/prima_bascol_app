@@ -7,6 +7,9 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/management/presentation/management_screen.dart';
+import '../../features/management/presentation/party_ranking_screen.dart';
+import '../../features/management/presentation/party_detail_analytics_screen.dart';
+import '../../features/management/presentation/party_comparison_screen.dart';
 import '../../features/masterdata/presentation/masterdata_screen.dart';
 import '../../features/monitoring/presentation/monitoring_rules_screen.dart';
 import '../../features/monitoring/presentation/monitoring_screen.dart';
@@ -117,6 +120,23 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.management,
             builder: (context, state) => const ManagementScreen(),
+            routes: [
+              GoRoute(
+                path: 'parties/ranking',
+                builder: (context, state) => const PartyRankingScreen(),
+              ),
+              GoRoute(
+                path: 'parties/compare',
+                builder: (context, state) => const PartyComparisonScreen(),
+              ),
+              GoRoute(
+                path: 'parties/:id',
+                builder: (context, state) {
+                  final id = int.tryParse(state.pathParameters['id'] ?? '0') ?? 0;
+                  return PartyDetailAnalyticsScreen(partyId: id);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoutes.monitoring,
