@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
@@ -24,7 +25,7 @@ class FileExportService {
     Map<String, dynamic>? queryParameters,
   }) async {
     try {
-      final response = await _apiClient.request<List<int>>(
+      final response = await _apiClient.request(
         endpoint,
         method: 'GET',
         options: Options(
@@ -36,22 +37,41 @@ class FileExportService {
         queryParameters: queryParameters,
       );
 
-      final bytes = response.data;
-      if (bytes == null || bytes.isEmpty) {
+      final rawData = response.data;
+      if (rawData == null) {
         throw const ServerFailure("محتوای دریافتی از سرور برای خروجی خالی است.");
+      }
+
+      final List<int> bytes;
+      if (rawData is List<int>) {
+        bytes = rawData;
+      } else if (rawData is List) {
+        bytes = rawData.cast<int>();
+      } else {
+        throw ServerFailure("فرمت داده‌های دریافتی نامعتبر است: ${rawData.runtimeType}");
+      }
+
+      if (bytes.isEmpty) {
+        throw const ServerFailure("فایل دریافتی از سرور خالی است.");
       }
 
       // Determine appropriate directory
       Directory? dir;
       try {
         if (Platform.isAndroid) {
-          dir = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
+          final downloadDirs = await getExternalStorageDirectories(type: StorageDirectory.downloads);
+          if (downloadDirs != null && downloadDirs.isNotEmpty) {
+            dir = downloadDirs.first;
+          }
+          dir ??= await getExternalStorageDirectory();
+          dir ??= await getApplicationDocumentsDirectory();
         } else if (Platform.isWindows) {
           dir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
         } else {
           dir = await getApplicationDocumentsDirectory();
         }
-      } catch (_) {
+      } catch (dirErr) {
+        debugPrint("[FileExportService] Directory resolution fallback: $dirErr");
         dir = await getApplicationDocumentsDirectory();
       }
 
@@ -84,19 +104,27 @@ class FileExportService {
       final safeDiskName = 'report_${fileTypePrefix}_$timestamp$extension';
       final file = File('${dir.path}/$safeDiskName');
       await file.writeAsBytes(bytes, flush: true);
+      debugPrint("[FileExportService] Saved ${bytes.length} bytes to: ${file.path}");
 
       // Open with default system app
-      final openResult = await OpenFilex.open(file.path, type: resolvedMime);
-      if (openResult.type == ResultType.done) {
-        return "فایل با موفقیت در اکسل/پی‌دی‌اف خوان باز شد.";
-      } else if (openResult.type == ResultType.noAppToOpen) {
-        return "فایل ذخیره شد: ${file.path}\nنرم‌افزار مناسبی برای مشاهده این فرمت در دستگاه یافت نشد.";
-      } else {
-        return "فایل در مسیر زیر ذخیره شد:\n${file.path}";
+      try {
+        final openResult = await OpenFilex.open(file.path, type: resolvedMime);
+        debugPrint("[FileExportService] OpenFilex result: type=${openResult.type}, message=${openResult.message}");
+        if (openResult.type == ResultType.done) {
+          return "فایل با موفقیت باز شد.";
+        } else if (openResult.type == ResultType.noAppToOpen) {
+          return "فایل در مسیر زیر ذخیره شد:\n${file.path}\n(برنامه مناسب برای باز کردن فایل یافت نشد)";
+        } else {
+          return "فایل با موفقیت در مسیر زیر ذخیره شد:\n${file.path}";
+        }
+      } catch (openErr) {
+        debugPrint("[FileExportService] OpenFilex call error (app re-run required for native plugin): $openErr");
+        return "فایل با موفقیت در حافظه دستگاه ذخیره شد:\n${file.path}";
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint("[FileExportService] Export error: $e\n$st");
       if (e is Failure) rethrow;
-      throw ServerFailure("خطا در دانلود یا باز کردن فایل خروجی: ${e.toString()}");
+      throw ServerFailure("خطا در دانلود یا ذخیره فایل گزارش: ${e.toString()}");
     }
   }
 }

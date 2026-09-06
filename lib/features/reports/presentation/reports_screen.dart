@@ -100,7 +100,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint("[ReportsScreen] Export error: $e\n$st");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
