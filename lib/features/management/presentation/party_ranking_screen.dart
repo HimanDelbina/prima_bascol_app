@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/api/api_endpoints.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/routing/route_names.dart';
+import '../../../core/services/file_export_service.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
@@ -46,6 +48,74 @@ class _PartyRankingScreenState extends ConsumerState<PartyRankingScreen> {
             icon: const Icon(Icons.compare_arrows),
             tooltip: "مقایسه چند طرف‌حساب",
             onPressed: () => context.push(AppRoutes.partyCompare),
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.download_rounded),
+            tooltip: "دریافت خروجی رتبه‌بندی",
+            onSelected: (val) async {
+              final filter = ref.read(partyRankingFilterProvider);
+              final params = {
+                'quick_period': filter.quickPeriod,
+                if (filter.partyType != null) 'party_type': filter.partyType,
+                if (filter.product != null) 'product': filter.product,
+                'minimum_tickets': filter.minimumTickets,
+                'ordering': filter.ordering,
+              };
+              final isXlsx = val == 'xlsx';
+              final endpoint = isXlsx
+                  ? ApiEndpoints.managementPartyExportXlsx
+                  : ApiEndpoints.managementPartyExportCsv;
+              final fileName = isXlsx ? 'رتبه‌بندی_طرف‌های_حساب.xlsx' : 'رتبه‌بندی_طرف‌های_حساب.csv';
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("در حال آماده‌سازی و دانلود خروجی..."),
+                  backgroundColor: AppColors.info,
+                ),
+              );
+
+              try {
+                final service = ref.read(fileExportServiceProvider);
+                final msg = await service.exportAndOpenFile(
+                  endpoint: endpoint,
+                  defaultFileName: fileName,
+                  queryParameters: params,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(msg), backgroundColor: AppColors.success),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("خطا در خروجی: $e"), backgroundColor: AppColors.error),
+                  );
+                }
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'xlsx',
+                child: Row(
+                  children: [
+                    Icon(Icons.table_view_rounded, size: 18, color: AppColors.success),
+                    SizedBox(width: 8),
+                    Text("خروجی اکسل (.xlsx)", style: TextStyle(fontSize: 13)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'csv',
+                child: Row(
+                  children: [
+                    Icon(Icons.description_outlined, size: 18, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text("خروجی CSV (.csv)", style: TextStyle(fontSize: 13)),
+                  ],
+                ),
+              ),
+            ],
           ),
           IconButton(
             icon: const Icon(Icons.refresh),

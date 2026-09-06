@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/api/api_endpoints.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/routing/route_names.dart';
+import '../../../core/services/file_export_service.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_date_picker_field.dart';
@@ -32,6 +34,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   String? _startDate;
   String? _endDate;
   String? _status;
+  bool _isExporting = false;
 
   void _applyFilter() {
     ref.read(reportFilterProvider.notifier).state = ReportFilterState(
@@ -50,6 +53,67 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       _status = null;
     });
     ref.read(reportFilterProvider.notifier).state = const ReportFilterState();
+  }
+
+  Future<void> _exportReport({required bool isPdf}) async {
+    if (_isExporting) return;
+
+    setState(() => _isExporting = true);
+
+    final formatName = isPdf ? "PDF" : "اکسل";
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Text("در حال دریافت و آماده‌سازی فایل $formatName..."),
+          ],
+        ),
+        backgroundColor: AppColors.info,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+
+    try {
+      final filter = ref.read(reportFilterProvider);
+      final params = filter.toParams();
+      final endpoint = isPdf ? ApiEndpoints.reportExportPdf : ApiEndpoints.reportExportXlsx;
+      final defaultFileName = isPdf ? 'گزارش_قبوض_باسکول.pdf' : 'گزارش_قبوض_باسکول.xlsx';
+
+      final service = ref.read(fileExportServiceProvider);
+      final resultMsg = await service.exportAndOpenFile(
+        endpoint: endpoint,
+        defaultFileName: defaultFileName,
+        queryParameters: params,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(resultMsg),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("خطا در صدور گزارش: ${e.toString()}"),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isExporting = false);
+      }
+    }
   }
 
   @override
@@ -261,11 +325,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                             children: [
                               Expanded(
                                 child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text("در حال آماده‌سازی فایل اکسل..."), backgroundColor: AppColors.info),
-                                    );
-                                  },
+                                  onPressed: _isExporting ? null : () => _exportReport(isPdf: false),
                                   icon: const Icon(Icons.table_view_rounded, size: 16),
                                   label: const Text("خروجی اکسل"),
                                 ),
@@ -273,11 +333,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text("در حال صدور گزارش PDF..."), backgroundColor: AppColors.info),
-                                    );
-                                  },
+                                  onPressed: _isExporting ? null : () => _exportReport(isPdf: true),
                                   icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
                                   label: const Text("چاپ PDF"),
                                 ),
@@ -300,21 +356,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                           Row(
                             children: [
                               OutlinedButton.icon(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("در حال آماده‌سازی فایل اکسل..."), backgroundColor: AppColors.info),
-                                  );
-                                },
+                                onPressed: _isExporting ? null : () => _exportReport(isPdf: false),
                                 icon: const Icon(Icons.table_view_rounded, size: 16),
                                 label: const Text("خروجی اکسل"),
                               ),
                               const SizedBox(width: 8),
                               OutlinedButton.icon(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("در حال صدور گزارش PDF..."), backgroundColor: AppColors.info),
-                                  );
-                                },
+                                onPressed: _isExporting ? null : () => _exportReport(isPdf: true),
                                 icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
                                 label: const Text("چاپ PDF"),
                               ),
@@ -359,14 +407,24 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                             style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("در حال آماده‌سازی فایل اکسل گزارش قبوض..."), backgroundColor: AppColors.info),
-                              );
-                            },
-                            icon: const Icon(Icons.table_view_rounded, size: 16),
-                            label: const Text("خروجی اکسل"),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _isExporting ? null : () => _exportReport(isPdf: false),
+                                  icon: const Icon(Icons.table_view_rounded, size: 16),
+                                  label: const Text("خروجی اکسل"),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _isExporting ? null : () => _exportReport(isPdf: true),
+                                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                                  label: const Text("چاپ PDF"),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       )
@@ -381,14 +439,20 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("در حال آماده‌سازی فایل اکسل گزارش قبوض..."), backgroundColor: AppColors.info),
-                              );
-                            },
-                            icon: const Icon(Icons.table_view_rounded, size: 16),
-                            label: const Text("خروجی اکسل"),
+                          Row(
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: _isExporting ? null : () => _exportReport(isPdf: false),
+                                icon: const Icon(Icons.table_view_rounded, size: 16),
+                                label: const Text("خروجی اکسل"),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: _isExporting ? null : () => _exportReport(isPdf: true),
+                                icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                                label: const Text("چاپ PDF"),
+                              ),
+                            ],
                           ),
                         ],
                       ),

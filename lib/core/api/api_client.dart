@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
@@ -178,6 +179,21 @@ class ApiClient {
     if (e.response != null && e.response?.data != null) {
       if (e.response!.data is Map<String, dynamic>) {
         return ApiException.fromResponse(e.response!.data, e.response?.statusCode);
+      } else if (e.response!.data is List<int>) {
+        try {
+          final decoded = utf8.decode(e.response!.data as List<int>);
+          final parsed = jsonDecode(decoded);
+          if (parsed is Map<String, dynamic>) {
+            return ApiException.fromResponse(parsed, e.response?.statusCode);
+          }
+        } catch (_) {}
+      } else if (e.response!.data is String) {
+        try {
+          final parsed = jsonDecode(e.response!.data as String);
+          if (parsed is Map<String, dynamic>) {
+            return ApiException.fromResponse(parsed, e.response?.statusCode);
+          }
+        } catch (_) {}
       }
     }
 
