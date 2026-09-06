@@ -13,6 +13,7 @@ import '../../../core/widgets/app_loading_indicator.dart';
 import '../../../core/widgets/responsive_layout.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../auth/presentation/auth_providers.dart';
+import '../../monitoring/presentation/monitoring_providers.dart';
 import 'dashboard_providers.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -53,7 +54,11 @@ class DashboardScreen extends ConsumerWidget {
                   onRetry: () => ref.refresh(dashboardSummaryProvider),
                 ),
               ),
-              const SizedBox(height: AppDimensions.xl),
+              const SizedBox(height: AppDimensions.lg),
+
+              // Smart Monitoring Alert Banner
+              _buildMonitoringAlertBanner(context, ref),
+              const SizedBox(height: AppDimensions.lg),
 
               // Charts Section
               trendsAsync.when(
@@ -273,6 +278,68 @@ class DashboardScreen extends ConsumerWidget {
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _buildMonitoringAlertBanner(BuildContext context, WidgetRef ref) {
+    final monitoringAsync = ref.watch(monitoringSummaryProvider);
+
+    return monitoringAsync.maybeWhen(
+      data: (summary) {
+        if (summary.totalOpen == 0) return const SizedBox.shrink();
+        final hasCritical = summary.criticalCount > 0;
+        final hasHigh = summary.highCount > 0;
+        final bannerColor = hasCritical
+            ? AppColors.riskCritical
+            : (hasHigh ? AppColors.riskHigh : AppColors.warning);
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: bannerColor.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: bannerColor.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                hasCritical ? Icons.dangerous_rounded : Icons.warning_amber_rounded,
+                color: bannerColor,
+                size: 26,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "هشدارهای پایش هوشمند و تشخیص رفتار غیرعادی",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: bannerColor),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "تعداد ${summary.totalOpen} هشدار باز نیازمند بررسی مدیر (${summary.criticalCount} بحرانی، ${summary.highCount} با اهمیت بالا)",
+                      style: const TextStyle(fontSize: 12, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: bannerColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+                onPressed: () => context.go(AppRoutes.monitoring),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text("مرکز پایش"),
+              ),
+            ],
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
     );
   }
 }

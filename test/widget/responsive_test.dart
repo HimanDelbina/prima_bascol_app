@@ -18,6 +18,8 @@ import 'package:prima_bascol_app/features/trucks_in_yard/domain/yard_truck_model
 import 'package:prima_bascol_app/features/reports/presentation/reports_screen.dart';
 import 'package:prima_bascol_app/features/reports/presentation/reports_providers.dart';
 import 'package:prima_bascol_app/features/reports/domain/report_models.dart';
+import 'package:prima_bascol_app/features/monitoring/presentation/monitoring_providers.dart';
+import 'package:prima_bascol_app/features/monitoring/domain/monitoring_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -240,6 +242,20 @@ void main() {
         overrides: [
           authControllerProvider.overrideWith((ref) => TestAuthController(dummyUser)),
           ticketDetailProvider(1).overrideWith((ref) => mockTicket),
+          ticketAnalysisProvider(1).overrideWith(
+            (ref) => Future.value(
+              TicketAnalysisSummary(
+                ticketId: 1,
+                serialNumber: '1001',
+                riskScore: 10,
+                riskLevel: 'NORMAL',
+                hasCritical: false,
+                hasHigh: false,
+                openAlertsCount: 0,
+                alerts: [],
+              ),
+            ),
+          ),
         ],
         child: const MaterialApp(
           home: Scaffold(body: TicketDetailScreen(ticketId: 1)),

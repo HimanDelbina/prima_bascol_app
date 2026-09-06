@@ -213,9 +213,28 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen> {
                     return DataRow(
                       cells: [
                         DataCell(
-                          Text(
-                            ticket.serialNumber,
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                ticket.serialNumber,
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                              ),
+                              if (ticket.openAlertsCount > 0) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.shade800,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    "⚠️ ${ticket.openAlertsCount}",
+                                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         DataCell(StatusBadge(code: ticket.status.code, label: ticket.status.label)),
@@ -286,7 +305,9 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen> {
       itemBuilder: (ctx, i) {
         final t = items[i];
         return MobileRecordCard(
-          title: "قبض شماره ${t.serialNumber}",
+          title: t.openAlertsCount > 0
+              ? "قبض ${t.serialNumber} (⚠️ ${t.openAlertsCount})"
+              : "قبض شماره ${t.serialNumber}",
           badge: StatusBadge(code: t.status.code, label: t.status.label),
           onTap: () => context.go(AppRoutes.ticketDetailPath(t.id)),
           rows: [

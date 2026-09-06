@@ -9,6 +9,8 @@ final monitoringRepositoryProvider = Provider<MonitoringRepository>((ref) {
 
 final monitoringFilterStatusProvider = StateProvider<String?>((ref) => null);
 final monitoringFilterSeverityProvider = StateProvider<String?>((ref) => null);
+final monitoringFilterTypeProvider = StateProvider<String?>((ref) => null);
+final monitoringFilterSearchProvider = StateProvider<String?>((ref) => null);
 
 final monitoringSummaryProvider = FutureProvider.autoDispose<MonitoringSummaryModel>((ref) async {
   final repo = ref.watch(monitoringRepositoryProvider);
@@ -19,10 +21,23 @@ final monitoringAlertsProvider = FutureProvider.autoDispose<List<MonitoringAlert
   final repo = ref.watch(monitoringRepositoryProvider);
   final status = ref.watch(monitoringFilterStatusProvider);
   final severity = ref.watch(monitoringFilterSeverityProvider);
-  return repo.fetchAlerts(status: status, severity: severity);
+  final alertType = ref.watch(monitoringFilterTypeProvider);
+  final search = ref.watch(monitoringFilterSearchProvider);
+
+  return repo.fetchAlerts(
+    status: status,
+    severity: severity,
+    alertType: alertType,
+    search: search,
+  );
 });
 
 final monitoringRulesProvider = FutureProvider.autoDispose<List<MonitoringRuleItem>>((ref) async {
   final repo = ref.watch(monitoringRepositoryProvider);
   return repo.fetchRules();
+});
+
+final ticketAnalysisProvider = FutureProvider.autoDispose.family<TicketAnalysisSummary, int>((ref, ticketId) async {
+  final repo = ref.watch(monitoringRepositoryProvider);
+  return repo.fetchTicketAnalysis(ticketId);
 });

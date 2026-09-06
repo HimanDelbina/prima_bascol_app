@@ -21,6 +21,8 @@ import 'dialogs/ticket_cancel_dialog.dart';
 import 'dialogs/ticket_correct_dialog.dart';
 import '../../security/domain/sensitive_action.dart';
 import '../../security/presentation/controllers/security_providers.dart';
+import '../../monitoring/presentation/monitoring_providers.dart';
+import '../../monitoring/presentation/widgets/alert_detail_sheet.dart';
 import 'ticket_providers.dart';
 
 class TicketDetailScreen extends ConsumerWidget {
@@ -158,6 +160,10 @@ class TicketDetailScreen extends ConsumerWidget {
                     ],
                   ),
           ),
+          const SizedBox(height: AppDimensions.lg),
+
+          // Smart Monitoring & Anomaly Card
+          _buildSmartMonitoringCard(context, ref, ticket, theme),
           const SizedBox(height: AppDimensions.lg),
 
           // Action Toolbar
@@ -410,6 +416,157 @@ class TicketDetailScreen extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSmartMonitoringCard(BuildContext context, WidgetRef ref, ticket, ThemeData theme) {
+    final analysisAsync = ref.watch(ticketAnalysisProvider(ticket.id));
+
+    return analysisAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (analysis) {
+        final hasAlerts = analysis.alerts.isNotEmpty;
+
+        return AppCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                alignment: WrapAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        hasAlerts ? Icons.warning_amber_rounded : Icons.verified_user_outlined,
+                        color: analysis.riskLevelColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          "پایش هوشمند و ریسک",
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  RiskBadge(riskScore: analysis.riskScore, riskLevel: analysis.riskLevel),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 14,
+                runSpacing: 6,
+                children: [
+                  Text(
+                    "امتیاز ریسک: ${analysis.riskScore} از ۱۰۰",
+                    style: TextStyle(fontWeight: FontWeight.bold, color: analysis.riskLevelColor, fontSize: 13),
+                  ),
+                  Text(
+                    "سطح: ${analysis.riskLevelTitle}",
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  Text(
+                    "هشدارهای فعال: ${analysis.openAlertsCount}",
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: analysis.openAlertsCount > 0 ? AppColors.warning : AppColors.success,
+                    ),
+                  ),
+                ],
+              ),
+              if (hasAlerts) ...[
+                const Divider(height: 20),
+                Text(
+                  "هشدارهای شناسایی‌شده برای این قبض:",
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                ...analysis.alerts.map((a) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: a.severityColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: a.severityColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(a.severityIcon, color: a.severityColor, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    a.title,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: a.statusColor.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      a.statusTitle,
+                                      style: TextStyle(fontSize: 10, color: a.statusColor, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                a.reason.isNotEmpty ? a.reason : a.description,
+                                style: const TextStyle(fontSize: 12, height: 1.4),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () {
+                            AlertDetailSheet.show(
+                              context,
+                              alert: a,
+                              onStatusChanged: () {
+                                ref.invalidate(ticketAnalysisProvider(ticket.id));
+                                ref.invalidate(ticketDetailProvider(ticket.id));
+                              },
+                            );
+                          },
+                          child: const Text("مشاهده و اقدام", style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ] else ...[
+                const SizedBox(height: 6),
+                const Text(
+                  "هیچگونه انحراف یا رفتار غیرعادی در این قبض شناسایی نشده است و تمام مقادیر با الگوهای تاریخی همخوانی دارند.",
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

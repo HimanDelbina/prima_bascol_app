@@ -4,14 +4,17 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/routing/route_names.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_error_state.dart';
 import '../../../core/widgets/app_loading_indicator.dart';
+import '../../../core/widgets/iranian_plate_widget.dart';
 import '../../../core/widgets/responsive_layout.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../domain/monitoring_models.dart';
 import 'monitoring_providers.dart';
+import 'widgets/alert_detail_sheet.dart';
 
 class MonitoringScreen extends ConsumerStatefulWidget {
   const MonitoringScreen({super.key});
@@ -21,98 +24,22 @@ class MonitoringScreen extends ConsumerStatefulWidget {
 }
 
 class _MonitoringScreenState extends ConsumerState<MonitoringScreen> {
-  void _resolveAlertDialog(MonitoringAlertItem alert) {
-    final noteCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text("حل هشدار: ${alert.ruleName}"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("لطفاً توضیحات یا اقدامات انجام‌شده جهت رفع این هشدار را وارد نمایید: *"),
-            const SizedBox(height: 12),
-            TextField(
-              controller: noteCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: "مثال: وزن مجدداً بررسی شد و تلورانس به علت رطوبت بار تأیید گردید.",
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("انصراف")),
-          ElevatedButton(
-            onPressed: () async {
-              final note = noteCtrl.text.trim();
-              if (note.length < 3) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("لطفاً حداقل ۳ کاراکتر یادداشت اقدام را وارد فرمایید."), backgroundColor: AppColors.warning),
-                );
-                return;
-              }
-              final repo = ref.read(monitoringRepositoryProvider);
-              await repo.resolveAlert(alert.id, note: note);
-              if (mounted) {
-                Navigator.pop(ctx);
-                ref.refresh(monitoringAlertsProvider);
-                ref.refresh(monitoringSummaryProvider);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("هشدار با موفقیت حل و مختومه گردید."), backgroundColor: AppColors.success),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-            child: const Text("ثبت و حل هشدار"),
-          ),
-        ],
-      ),
-    );
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
-  void _ignoreAlertDialog(MonitoringAlertItem alert) {
-    final noteCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text("نادیده‌گرفتن هشدار: ${alert.ruleName}"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("علت نادیده‌گرفتن این هشدار چیست؟ *"),
-            const SizedBox(height: 12),
-            TextField(
-              controller: noteCtrl,
-              maxLines: 2,
-              decoration: const InputDecoration(hintText: "دلیل نادیده‌گرفتن را ذکر فرمایید..."),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("انصراف")),
-          ElevatedButton(
-            onPressed: () async {
-              final note = noteCtrl.text.trim();
-              if (note.length < 3) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("لطفاً حداقل ۳ کاراکتر دلیل نادیده‌گرفتن را وارد فرمایید."), backgroundColor: AppColors.warning),
-                );
-                return;
-              }
-              final repo = ref.read(monitoringRepositoryProvider);
-              await repo.ignoreAlert(alert.id, note: note);
-              if (mounted) {
-                Navigator.pop(ctx);
-                ref.refresh(monitoringAlertsProvider);
-                ref.refresh(monitoringSummaryProvider);
-              }
-            },
-            child: const Text("تأیید نادیده‌گرفتن"),
-          ),
-        ],
-      ),
+  void _openDetailSheet(MonitoringAlertItem alert) {
+    AlertDetailSheet.show(
+      context,
+      alert: alert,
+      onStatusChanged: () {
+        ref.invalidate(monitoringAlertsProvider);
+        ref.invalidate(monitoringSummaryProvider);
+      },
     );
   }
 
@@ -122,14 +49,13 @@ class _MonitoringScreenState extends ConsumerState<MonitoringScreen> {
     final alertsAsync = ref.watch(monitoringAlertsProvider);
     final selectedStatus = ref.watch(monitoringFilterStatusProvider);
     final selectedSeverity = ref.watch(monitoringFilterSeverityProvider);
-    final theme = Theme.of(context);
+    final selectedType = ref.watch(monitoringFilterTypeProvider);
+    final isMobile = ResponsiveLayout.isMobile(context);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          ResponsiveLayout.isMobile(context)
-              ? "پایش هوشمند"
-              : "مرکز پایش هوشمند و آنومالی‌ها",
+          isMobile ? "پایش هوشمند" : "مرکز پایش هوشمند، تشخیص مغایرت و رفتار غیرعادی",
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -145,15 +71,15 @@ class _MonitoringScreenState extends ConsumerState<MonitoringScreen> {
         actions: [
           TextButton.icon(
             onPressed: () => context.go(AppRoutes.monitoringRules),
-            icon: const Icon(Icons.rule_folder_outlined),
-            label: const Text("قوانین پایش"),
+            icon: const Icon(Icons.tune_rounded),
+            label: const Text("تنظیمات قوانین"),
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: "بروزرسانی",
             onPressed: () {
-              ref.refresh(monitoringSummaryProvider);
-              ref.refresh(monitoringAlertsProvider);
+              ref.invalidate(monitoringSummaryProvider);
+              ref.invalidate(monitoringAlertsProvider);
             },
           ),
         ],
@@ -163,63 +89,97 @@ class _MonitoringScreenState extends ConsumerState<MonitoringScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Summary KPIs
+            // KPI Summary Cards
             summaryAsync.when(
               loading: () => const AppLoadingIndicator(message: "در حال دریافت خلاصه وضعیت پایش..."),
-              error: (err, _) => AppErrorState(message: err.toString(), onRetry: () => ref.refresh(monitoringSummaryProvider)),
-              data: (summary) => ResponsiveLayout(
-                mobile: Column(
-                  children: [
-                    StatCard(title: "هشدارهای باز", value: "${summary.openCount}", icon: Icons.warning_amber_rounded, color: AppColors.warning),
-                    const SizedBox(height: 10),
-                    StatCard(title: "هشدارهای بحرانی", value: "${summary.criticalCount}", icon: Icons.error_outline_rounded, color: AppColors.error),
-                    const SizedBox(height: 10),
-                    StatCard(title: "تحت بررسی", value: "${summary.reviewedCount}", icon: Icons.pending_actions_rounded, color: AppColors.info),
-                    const SizedBox(height: 10),
-                    StatCard(title: "حل و مختومه", value: "${summary.resolvedCount}", icon: Icons.check_circle_outline_rounded, color: AppColors.success),
-                  ],
-                ),
-                desktop: Row(
-                  children: [
-                    Expanded(child: StatCard(title: "هشدارهای باز", value: "${summary.openCount}", icon: Icons.warning_amber_rounded, color: AppColors.warning)),
-                    const SizedBox(width: 12),
-                    Expanded(child: StatCard(title: "هشدارهای بحرانی", value: "${summary.criticalCount}", icon: Icons.error_outline_rounded, color: AppColors.error)),
-                    const SizedBox(width: 12),
-                    Expanded(child: StatCard(title: "تحت بررسی", value: "${summary.reviewedCount}", icon: Icons.pending_actions_rounded, color: AppColors.info)),
-                    const SizedBox(width: 12),
-                    Expanded(child: StatCard(title: "حل و مختومه", value: "${summary.resolvedCount}", icon: Icons.check_circle_outline_rounded, color: AppColors.success)),
-                  ],
-                ),
+              error: (err, _) => AppErrorState(
+                message: err.toString(),
+                onRetry: () => ref.invalidate(monitoringSummaryProvider),
               ),
+              data: (summary) => _buildKpis(context, summary),
             ),
             const SizedBox(height: 16),
 
-            // Filters
+            // Filter Bar
             AppCard(
               padding: const EdgeInsets.all(AppDimensions.paddingMd),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("فیلترهای هشدار:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Row(
+                    children: [
+                      const Icon(Icons.filter_list_rounded, size: 20, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      const Text(
+                        "فیلترهای هوشمند و جستجو:",
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      const Spacer(),
+                      if (selectedStatus != null || selectedSeverity != null || selectedType != null || _searchController.text.isNotEmpty)
+                        TextButton(
+                          onPressed: () {
+                            _searchController.clear();
+                            ref.read(monitoringFilterSearchProvider.notifier).state = null;
+                            ref.read(monitoringFilterStatusProvider.notifier).state = null;
+                            ref.read(monitoringFilterSeverityProvider.notifier).state = null;
+                            ref.read(monitoringFilterTypeProvider.notifier).state = null;
+                          },
+                          child: const Text("پاکسازی فیلترها", style: TextStyle(fontSize: 12)),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 10),
+                  // Search input
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: "جستجو در عنوان، پلاک، شماره قبض یا دلیل هشدار...",
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                ref.read(monitoringFilterSearchProvider.notifier).state = null;
+                              },
+                            )
+                          : null,
+                      isDense: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    onSubmitted: (val) {
+                      ref.read(monitoringFilterSearchProvider.notifier).state = val.trim().isNotEmpty ? val.trim() : null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  // Status chips
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 6,
+                    runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Text("وضعیت: ", style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      const Text("وضعیت: ", style: TextStyle(fontSize: 12, color: Colors.grey)),
                       _filterChip("همه", null, selectedStatus, (val) => ref.read(monitoringFilterStatusProvider.notifier).state = val),
                       _filterChip("باز", "OPEN", selectedStatus, (val) => ref.read(monitoringFilterStatusProvider.notifier).state = val),
                       _filterChip("تحت بررسی", "REVIEWED", selectedStatus, (val) => ref.read(monitoringFilterStatusProvider.notifier).state = val),
                       _filterChip("حل‌شده", "RESOLVED", selectedStatus, (val) => ref.read(monitoringFilterStatusProvider.notifier).state = val),
                       _filterChip("نادیده‌گرفته", "IGNORED", selectedStatus, (val) => ref.read(monitoringFilterStatusProvider.notifier).state = val),
-                      const SizedBox(width: 16),
-                      const Text("شدت: ", style: TextStyle(fontSize: 13, color: Colors.grey)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // Severity chips
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text("اهمیت: ", style: TextStyle(fontSize: 12, color: Colors.grey)),
                       _filterChip("همه", null, selectedSeverity, (val) => ref.read(monitoringFilterSeverityProvider.notifier).state = val),
-                      _filterChip("بحرانی", "CRITICAL", selectedSeverity, (val) => ref.read(monitoringFilterSeverityProvider.notifier).state = val),
-                      _filterChip("بالا", "HIGH", selectedSeverity, (val) => ref.read(monitoringFilterSeverityProvider.notifier).state = val),
-                      _filterChip("متوسط", "MEDIUM", selectedSeverity, (val) => ref.read(monitoringFilterSeverityProvider.notifier).state = val),
-                      _filterChip("کم", "LOW", selectedSeverity, (val) => ref.read(monitoringFilterSeverityProvider.notifier).state = val),
+                      _filterChip("بحرانی", "CRITICAL", selectedSeverity, (val) => ref.read(monitoringFilterSeverityProvider.notifier).state = val, color: AppColors.riskCritical),
+                      _filterChip("بالا", "HIGH", selectedSeverity, (val) => ref.read(monitoringFilterSeverityProvider.notifier).state = val, color: AppColors.riskHigh),
+                      _filterChip("متوسط", "MEDIUM", selectedSeverity, (val) => ref.read(monitoringFilterSeverityProvider.notifier).state = val, color: AppColors.riskMedium),
+                      _filterChip("کم / اطلاعات", "LOW", selectedSeverity, (val) => ref.read(monitoringFilterSeverityProvider.notifier).state = val, color: AppColors.riskLow),
                     ],
                   ),
                 ],
@@ -227,25 +187,33 @@ class _MonitoringScreenState extends ConsumerState<MonitoringScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Alert List
+            // Alert List or Table
             alertsAsync.when(
               loading: () => const AppLoadingIndicator(message: "در حال بارگذاری هشدارها..."),
-              error: (err, _) => AppErrorState(message: err.toString(), onRetry: () => ref.refresh(monitoringAlertsProvider)),
+              error: (err, _) => AppErrorState(
+                message: err.toString(),
+                onRetry: () => ref.invalidate(monitoringAlertsProvider),
+              ),
               data: (alerts) {
                 if (alerts.isEmpty) {
                   return const AppEmptyState(
                     icon: Icons.verified_user_outlined,
-                    title: "هیچ هشداری یافت نشد",
-                    description: "تمام فرآیندهای باسکول مطابق با حد استاندارد و الگوهای طبیعی ثبت شده‌اند.",
+                    title: "هیچ هشدار مغایرتی یافت نشد",
+                    description: "تمام عملیات و اوزان ثبت‌شده باسکول در محدوده استاندارد و الگوی تاریخی قرار دارند.",
                   );
                 }
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: alerts.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (ctx, i) => _buildAlertCard(alerts[i]),
-                );
+
+                if (isMobile) {
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: alerts.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (ctx, i) => _buildMobileAlertCard(alerts[i]),
+                  );
+                }
+
+                return _buildDesktopAlertTable(context, alerts);
               },
             ),
           ],
@@ -254,154 +222,340 @@ class _MonitoringScreenState extends ConsumerState<MonitoringScreen> {
     );
   }
 
-  Widget _filterChip(String label, String? value, String? current, ValueChanged<String?> onSelected) {
+  Widget _buildKpis(BuildContext context, MonitoringSummaryModel summary) {
+    return ResponsiveLayout(
+      mobile: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: StatCard(
+                  title: "هشدارهای باز",
+                  value: "${summary.openCount}",
+                  icon: Icons.warning_amber_rounded,
+                  color: AppColors.warning,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: StatCard(
+                  title: "هشدارهای بحرانی",
+                  value: "${summary.criticalCount}",
+                  icon: Icons.dangerous_rounded,
+                  color: AppColors.riskCritical,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: StatCard(
+                  title: "اهمیت بالا",
+                  value: "${summary.highCount}",
+                  icon: Icons.error_outline_rounded,
+                  color: AppColors.riskHigh,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: StatCard(
+                  title: "حل و مختومه",
+                  value: "${summary.resolvedCount}",
+                  icon: Icons.check_circle_outline_rounded,
+                  color: AppColors.success,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      desktop: Row(
+        children: [
+          Expanded(
+            child: StatCard(
+              title: "هشدارهای امروز",
+              value: "${summary.totalToday}",
+              icon: Icons.today_rounded,
+              color: const Color(0xFF0284C7),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: StatCard(
+              title: "کل هشدارهای باز",
+              value: "${summary.totalOpen}",
+              icon: Icons.warning_amber_rounded,
+              color: AppColors.warning,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: StatCard(
+              title: "هشدارهای بحرانی",
+              value: "${summary.criticalCount}",
+              icon: Icons.dangerous_rounded,
+              color: AppColors.riskCritical,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: StatCard(
+              title: "هشدارهای با ریسک بالا",
+              value: "${summary.highCount}",
+              icon: Icons.error_outline_rounded,
+              color: AppColors.riskHigh,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: StatCard(
+              title: "حل و مختومه",
+              value: "${summary.resolvedCount}",
+              icon: Icons.check_circle_outline_rounded,
+              color: AppColors.success,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterChip(
+    String label,
+    String? value,
+    String? current,
+    ValueChanged<String?> onSelected, {
+    Color? color,
+  }) {
     final isSelected = current == value;
     return ChoiceChip(
       label: Text(label),
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        color: isSelected && color != null ? color : null,
+      ),
       selected: isSelected,
       onSelected: (_) => onSelected(value),
     );
   }
 
-  Widget _buildAlertCard(MonitoringAlertItem alert) {
-    Color sevColor;
-    String sevLabel;
-    switch (alert.severity.toUpperCase()) {
-      case 'CRITICAL':
-        sevColor = AppColors.riskCritical;
-        sevLabel = "بحرانی";
-        break;
-      case 'HIGH':
-        sevColor = AppColors.riskHigh;
-        sevLabel = "بالا";
-        break;
-      case 'MEDIUM':
-        sevColor = AppColors.riskMedium;
-        sevLabel = "متوسط";
-        break;
-      case 'INFO':
-        sevColor = Colors.blue;
-        sevLabel = "اطلاعات";
-        break;
-      case 'LOW':
-      default:
-        sevColor = AppColors.riskLow;
-        sevLabel = "کم";
-        break;
-    }
-
-    final alertStatus = alert.status.toUpperCase();
-    final isOpen = alertStatus == 'OPEN';
-    final isReviewed = alertStatus == 'REVIEWED';
-
+  Widget _buildMobileAlertCard(MonitoringAlertItem alert) {
     return AppCard(
-      padding: const EdgeInsets.all(AppDimensions.paddingMd),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: sevColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
-                      border: Border.all(color: sevColor.withOpacity(0.4)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.warning_rounded, size: 14, color: sevColor),
-                        const SizedBox(width: 4),
-                        Text(sevLabel, style: TextStyle(color: sevColor, fontWeight: FontWeight.bold, fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(alert.ruleName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                ],
-              ),
-              if (alert.ticketSerial != null)
-                InkWell(
-                  onTap: () {
-                    if (alert.ticketId != null) {
-                      context.go(AppRoutes.ticketDetailPath(alert.ticketId!));
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
-                    ),
-                    child: Text("قبض #${alert.ticketSerial}", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+      padding: const EdgeInsets.all(12),
+      child: InkWell(
+        onTap: () => _openDetailSheet(alert),
+        borderRadius: BorderRadius.circular(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Row 1: Severity + Title + Status
+            Row(
+              children: [
+                Icon(alert.severityIcon, color: alert.severityColor, size: 20),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    alert.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(alert.description, style: const TextStyle(fontSize: 13, height: 1.5)),
-          if (alert.currentValue != null || alert.baselineValue != null) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
-              ),
-              child: Row(
-                children: [
-                  if (alert.currentValue != null)
-                    Text("مقدار ثبت‌شده: ${alert.currentValue} | ", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  if (alert.baselineValue != null)
-                    Text("مقدار مبنا: ${alert.baselineValue} | ", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  if (alert.deviationPercent != null)
-                    Text("درصد انحراف: ${alert.deviationPercent?.toStringAsFixed(1)}%", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: sevColor)),
-                ],
-              ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: alert.statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: alert.statusColor.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    alert.statusTitle,
+                    style: TextStyle(color: alert.statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
-          ],
-          if (alert.resolvedNotes != null && alert.resolvedNotes!.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text("یادداشت حل: ${alert.resolvedNotes}", style: const TextStyle(fontSize: 12, color: AppColors.success, fontStyle: FontStyle.italic)),
-          ],
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(alert.createdAtJalali ?? "", style: const TextStyle(fontSize: 11, color: Colors.grey)),
-              if (isOpen || isReviewed)
+
+            // Plate + Serial
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (alert.ticketPlate != null && alert.ticketPlate!.isNotEmpty)
+                  IranianPlateWidget(plateDisplay: alert.ticketPlate!, scale: 0.75)
+                else
+                  Text("قبض: ${alert.ticketSerial ?? alert.ticketId ?? '-'}", style: const TextStyle(fontSize: 12)),
+                Text(
+                  alert.productName ?? alert.partyName ?? '',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Reason summary
+            Text(
+              alert.reason.isNotEmpty ? alert.reason : alert.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade800, height: 1.4),
+            ),
+            const SizedBox(height: 8),
+
+            // Deviation Badge + Date + View Button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (alert.deviationPercent != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: alert.severityColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      "انحراف: ${alert.deviationPercent!.toStringAsFixed(1)}٪",
+                      style: TextStyle(color: alert.severityColor, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  )
+                else
+                  const SizedBox.shrink(),
                 Row(
                   children: [
-                    if (isOpen)
-                      OutlinedButton(
-                        onPressed: () async {
-                          final repo = ref.read(monitoringRepositoryProvider);
-                          await repo.reviewAlert(alert.id);
-                          ref.refresh(monitoringAlertsProvider);
-                          ref.refresh(monitoringSummaryProvider);
-                        },
-                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
-                        child: const Text("بررسی شد"),
-                      ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () => _resolveAlertDialog(alert),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
-                      child: const Text("حل هشدار"),
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: () => _ignoreAlertDialog(alert),
-                      child: const Text("نادیده‌گرفتن", style: TextStyle(color: Colors.grey)),
-                    ),
+                    Text(alert.createdAtJalali ?? '', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
                   ],
                 ),
-            ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopAlertTable(BuildContext context, List<MonitoringAlertItem> alerts) {
+    final theme = Theme.of(context);
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
+              columns: const [
+                DataColumn(label: Text("سطح اهمیت")),
+                DataColumn(label: Text("نوع هشدار")),
+                DataColumn(label: Text("قبض و پلاک")),
+                DataColumn(label: Text("کالا / طرف حساب")),
+                DataColumn(label: Text("مقدار فعلی")),
+                DataColumn(label: Text("مقدار مبنا")),
+                DataColumn(label: Text("درصد انحراف")),
+                DataColumn(label: Text("وضعیت")),
+                DataColumn(label: Text("تاریخ کشف")),
+                DataColumn(label: Text("عملیات")),
+              ],
+              rows: alerts.map((a) {
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(a.severityIcon, color: a.severityColor, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            a.severityTitle,
+                            style: TextStyle(color: a.severityColor, fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    DataCell(
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 180),
+                        child: Text(
+                          a.alertTypeTitle,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "قبض: ${a.ticketSerial ?? a.ticketId ?? '-'}",
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 11),
+                          ),
+                          if (a.ticketPlate != null && a.ticketPlate!.isNotEmpty)
+                            IranianPlateWidget(plateDisplay: a.ticketPlate!, scale: 0.7),
+                        ],
+                      ),
+                    ),
+                    DataCell(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(a.productName ?? '-', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          Text(a.partyName ?? '', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    DataCell(Text(a.currentValue != null ? WeightFormatter.formatNumber(a.currentValue) : '-')),
+                    DataCell(Text(a.baselineValue != null ? WeightFormatter.formatNumber(a.baselineValue) : '-')),
+                    DataCell(
+                      a.deviationPercent != null
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: a.severityColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                "${a.deviationPercent!.toStringAsFixed(1)}٪",
+                                style: TextStyle(color: a.severityColor, fontWeight: FontWeight.bold, fontSize: 11),
+                              ),
+                            )
+                          : const Text("-"),
+                    ),
+                    DataCell(
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: a.statusColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: a.statusColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          a.statusTitle,
+                          style: TextStyle(color: a.statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    DataCell(Text(a.createdAtJalali ?? '-', style: const TextStyle(fontSize: 11))),
+                    DataCell(
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          textStyle: const TextStyle(fontSize: 11),
+                        ),
+                        onPressed: () => _openDetailSheet(a),
+                        child: const Text("مشاهده و اقدام"),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),

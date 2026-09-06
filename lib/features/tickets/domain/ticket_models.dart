@@ -1,4 +1,4 @@
-﻿class ChoiceItem {
+class ChoiceItem {
   final String code;
   final String label;
 
@@ -40,6 +40,8 @@ class WeighTicketListModel {
   final double lossWeight;
   final double finalWeight;
   final bool isToleranceExceeded;
+  final int openAlertsCount;
+  final int riskScore;
   final String? createdAtJalali;
 
   WeighTicketListModel({
@@ -67,6 +69,8 @@ class WeighTicketListModel {
     required this.lossWeight,
     required this.finalWeight,
     required this.isToleranceExceeded,
+    this.openAlertsCount = 0,
+    this.riskScore = 0,
     this.createdAtJalali,
   });
 
@@ -96,6 +100,12 @@ class WeighTicketListModel {
       lossWeight: double.tryParse(json['loss_weight']?.toString() ?? '0') ?? 0.0,
       finalWeight: double.tryParse(json['final_weight']?.toString() ?? '0') ?? 0.0,
       isToleranceExceeded: json['is_tolerance_exceeded'] == true,
+      openAlertsCount: json['open_alerts_count'] is int
+          ? json['open_alerts_count']
+          : int.tryParse(json['open_alerts_count']?.toString() ?? '0') ?? 0,
+      riskScore: json['risk_score'] is int
+          ? json['risk_score']
+          : int.tryParse(json['risk_score']?.toString() ?? '0') ?? 0,
       createdAtJalali: json['created_at_jalali']?.toString(),
     );
   }
